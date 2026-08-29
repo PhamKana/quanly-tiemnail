@@ -14,8 +14,8 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 }
 
 export async function registerServiceWorkerAndSubscribe(
-  role?: string,
-  userName?: string
+  _role?: string,
+  _userName?: string
 ): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.warn("Push messaging is not supported.");
@@ -23,6 +23,8 @@ export async function registerServiceWorkerAndSubscribe(
   }
 
   try {
+    const session = readStoredSession();
+    if (!session) return;
     const swReg = await navigator.serviceWorker.register('/sw.js');
     const response = await fetch('/api/push-public-key');
     const data = await response.json();
@@ -35,8 +37,8 @@ export async function registerServiceWorkerAndSubscribe(
       
       await fetch('/api/push-subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription, role: role || 'unknown', userName: userName || '' })
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(session) },
+        body: JSON.stringify({ subscription })
       });
     }
   } catch (error) {
@@ -51,9 +53,12 @@ export function showLocalNotificationOnly(title: string, body: string, tag: stri
 }
 
 export function triggerPushNotification(title: string, body: string, tag: string, url?: string): void {
+  const session = readStoredSession();
+  if (!session) return;
   fetch('/api/push-notify-all', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(session) },
     body: JSON.stringify({ title, body, tag, url })
   }).catch(console.error);
 }
+import { getAuthHeaders, readStoredSession } from '@/shared/lib/auth';
