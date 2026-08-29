@@ -1,0 +1,28 @@
+{
+  "short_name": "nailby.ank",
+  "name": "Nailby.ank - Luxury Nails System",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "/logo-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#fdf8f6",
+  "theme_color": "#e09d9d",
+  "display": "standalone",
+  "orientation": "portrait"
+}

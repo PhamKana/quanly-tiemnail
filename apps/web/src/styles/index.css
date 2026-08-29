@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Source+Sans+3:ital,wght@0,300..900;1,300..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-background: #FAFAF8;
+  --color-foreground: #1A1A1A;
+  --color-muted: #F5F3F0;
+  --color-muted-foreground: #6B6B6B;
+  --color-accent: #B8860B;
+  --color-accent-secondary: #D4A84B;
+  --color-accent-foreground: #FFFFFF;
+  --color-border-color: #E8E4DF;
+  /* naming this border-color to avoid conflicts with 'border' thickness values when using tailwind v4, or just use css custom properties directly */
+  --color-card: #FFFFFF;
+  --color-ring: #B8860B;
+  --color-accent-muted: rgba(184, 134, 11, 0.06);
+}
+
+@layer base {
+  :root {
+    --background: #FAFAF8;
+    --foreground: #1A1A1A;
+    --muted: #F5F3F0;
+    --muted-foreground: #6B6B6B;
+    --accent: #B8860B;
+    --accent-secondary: #D4A84B;
+    --accent-foreground: #FFFFFF;
+    --border: #E8E4DF;
+    --border-hover: #D4A84B;
+    --card: #FFFFFF;
+    --ring: #B8860B;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.small-caps {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
