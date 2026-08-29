@@ -22,5 +22,6 @@ npm run test:salary
 
 `npm run dev` starts the API, which mounts Vite in middleware mode and serves the web workspace. Production serves `dist/web` from `dist/server.cjs`.
 
-See [docs/architecture.md](docs/architecture.md) before adding a feature.
+See [docs/architecture.md](docs/architecture.md) before adding a feature and
+[docs/security.md](docs/security.md) before a public deployment.
 

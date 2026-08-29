@@ -85,7 +85,7 @@ export default function StaffManagement({
       hourlyRate: role === 'Support' ? Number(hourlyRate) : undefined,
       status,
       username: username.trim() || phone.trim(),
-      password: password.trim() || '1234'
+      password: password.trim() || undefined
     });
 
     setName('');
@@ -150,7 +150,7 @@ export default function StaffManagement({
       hourlyRate: editRole === 'Support' ? Number(editHourlyRate) : undefined,
       status: editStatus,
       username: editUsername.trim() || editPhone.trim(),
-      password: editPassword.trim() || '1234'
+      password: editPassword.trim() || undefined
     });
 
     setEditingId(null);
@@ -679,7 +679,7 @@ export default function StaffManagement({
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <input
                       type="email"
-                      placeholder="Ví dụ: hoanganh23091997@gmail.com"
+                      placeholder="Ví dụ: admin@tiemnail.com"
                       required
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}

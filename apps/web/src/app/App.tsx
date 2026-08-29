@@ -9,8 +9,8 @@ const INITIAL_SERVICES: NailService[] = [
 ];
 
 const INITIAL_STAFF: Staff[] = [
-  { id: 'staff_1', name: 'Hoàng Anh', phone: '0971234567', role: 'Thợ Chính', commissionRate: 0.6, baseSalary: 200000, status: 'active', username: 'hoanganh', password: '0089' },
-  { id: 'staff_2', name: 'Minh Thợ', phone: '0977654321', role: 'Support', commissionRate: 0.4, baseSalary: 150000, hourlyRate: 30000, status: 'active', username: 'minhtho', password: '1234' }
+  { id: 'staff_demo_1', name: 'Thợ mẫu', phone: '0900000001', role: 'Thợ Chính', commissionRate: 0.6, baseSalary: 200000, status: 'active' },
+  { id: 'staff_demo_2', name: 'Hỗ trợ mẫu', phone: '0900000002', role: 'Support', commissionRate: 0.4, baseSalary: 150000, hourlyRate: 30000, status: 'active' }
 ];
 
 const INITIAL_CUSTOMERS: Customer[] = [
@@ -194,7 +194,7 @@ export default function App() {
   // Fetch list of backups when settings is toggled open
   useEffect(() => {
     if (isSettingsOpen) {
-      fetch("/api/backups/list")
+      fetch("/api/backups/list", { headers: getAuthHeaders(readStoredSession()) })
         .then(res => res.json())
         .then(data => {
           if (data && Array.isArray(data.files)) {
@@ -1105,9 +1105,7 @@ export default function App() {
         console.error("Failed to parse nail_admin_accounts, using default.", e);
       }
     }
-    return [
-      { id: 'admin_default', name: 'Hoàng Anh (Admin)', email: 'hoanganh23091997@gmail.com', password: '0089' }
-    ];
+    return [];
   });
 
   // Sync to localStorage
@@ -1146,7 +1144,7 @@ export default function App() {
       if (currentProfile) {
         setStaffPhone(currentProfile.phone || '');
         setStaffUsername(currentProfile.username || currentProfile.phone || '');
-        setStaffPassword(currentProfile.password || '1234');
+        setStaffPassword(currentProfile.password || '');
       }
     }
   }, [isSettingsOpen, currentUser, staff]);
@@ -2134,7 +2132,7 @@ export default function App() {
               </label>
               <input
                 type="text"
-                placeholder="Ví dụ: hoanganh23091997@gmail.com"
+                placeholder="Ví dụ: admin@tiemnail.com"
                 value={loginUsername}
                 onChange={(e) => setLoginUsername(e.target.value)}
                 className="w-full bg-background border border-border rounded-md px-4 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-[var(--accent)] focus:bg-white transition-all outline-hidden font-sans"
@@ -2534,7 +2532,7 @@ export default function App() {
                                         try {
                                           const response = await fetch("/api/import-server-backup", {
                                             method: "POST",
-                                            headers: { "Content-Type": "application/json" },
+                                            headers: { "Content-Type": "application/json", ...getAuthHeaders(currentUser) },
                                             body: JSON.stringify({ fileName: selectedBackupFile })
                                           });
                                           const resData = await response.json();

@@ -1,12 +1,12 @@
 import express from "express";
 import path from "path";
-import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 
 import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import fs from "fs";
 import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 import {
   assertPendingGroupAppointmentsConsistent,
   assertGroupPaymentTotalsConsistent,
@@ -20,13 +20,11 @@ import { SimpleCache } from "./infrastructure/cache/SimpleCache";
 import {
   backupsRoot,
   firebaseAppletConfigPath,
-  rootEnvPath,
   webDistRoot,
   webRoot,
   webViteConfigPath
 } from "./config/paths";
-
-dotenv.config({ path: rootEnvPath });
+import { hasConfiguredAdmin, hasConfiguredWebPush, runtimeConfig } from "./config/runtime";
 
 function toNonNegativeMoney(value: unknown): number {
   const amount = Number(value);
@@ -88,25 +86,21 @@ const appletConfig = JSON.parse(fs.readFileSync(firebaseAppletConfigPath, 'utf-8
 
 import webpush from "web-push";
 
-// Setup Web-Push VAPID keys statically on boot - FIXED pairing so subscription keys never invalidate on container restarts
-const publicKey = "BFyA_PzRY_7YJ6i82Lq2RJS4AITGx7bPoMGZebBbwLS8WvKjnnFCzrhE9rbK7bvmhfvPFn6NOjsHQz7dBCW0ANc";
-const privateKey = "kH6ncRUGYzRxnboUDZMZHzm9j5bbI3xTqpc-7AxGPKo";
-
-try {
+if (hasConfiguredWebPush()) {
   webpush.setVapidDetails(
-    "mailto:hoanganh23091997@gmail.com",
-    publicKey,
-    privateKey
+    runtimeConfig.webPush.subject,
+    runtimeConfig.webPush.publicKey!,
+    runtimeConfig.webPush.privateKey!
   );
-  console.log("Web-Push VAPID consistent credentials configured statically.");
-} catch (e) {
-  console.error("Failed to configure Web-Push details in server.ts:", e);
+  console.log("Web-Push VAPID credentials configured.");
+} else {
+  console.warn('[web-push] Thiếu VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY; thông báo đẩy đang tắt.');
 }
 
 const subscriptions: any[] = [];
 
 export const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = runtimeConfig.port;
 
 let db: firebase.firestore.Firestore | null = null;
 try {
@@ -148,7 +142,7 @@ if (db) {
 }
 
 // Body parser
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 type AuthUser = {
   id: string;
@@ -157,9 +151,8 @@ type AuthUser = {
   staffId?: string;
 };
 
-// `exp` is kept optional only so tokens issued by older deployments remain
-// readable. Login sessions no longer expire automatically.
-type AuthTokenPayload = AuthUser & { exp?: number };
+// Sessions expire server-side and are rejected after their configured TTL.
+type AuthTokenPayload = AuthUser & { exp: number };
 
 type PromotionSnapshot = {
   code?: string;
@@ -191,18 +184,7 @@ const systemExpiryActor: AuthUser = {
   role: 'admin'
 };
 
-// AI Studio deployments may not preserve custom environment variables. Use a
-// deterministic, server-only fallback so tokens remain valid across restarts
-// and file-import deployments. AUTH_SESSION_SECRET still takes precedence
-// when it is explicitly configured.
-const sourceStableAuthSessionSecret = crypto
-  .createHash('sha256')
-  .update(`nail-manager-auth-session-v1:${privateKey}`)
-  .digest('hex');
-const authSessionSecret = process.env.AUTH_SESSION_SECRET || sourceStableAuthSessionSecret;
-if (!process.env.AUTH_SESSION_SECRET) {
-  console.warn('[auth] AUTH_SESSION_SECRET chưa được cấu hình; đang dùng khóa phiên cố định của bản mã AI Studio.');
-}
+const authSessionSecret = runtimeConfig.authSessionSecret;
 
 const encodeAuthPart = (value: string | Buffer) => Buffer.from(value).toString('base64url');
 
@@ -211,7 +193,10 @@ function signAuthPayload(encodedPayload: string): string {
 }
 
 function createAuthToken(user: AuthUser): string {
-  const payload: AuthTokenPayload = { ...user };
+  const payload: AuthTokenPayload = {
+    ...user,
+    exp: Math.floor(Date.now() / 1000) + runtimeConfig.authSessionTtlSeconds
+  };
   const encodedPayload = encodeAuthPart(JSON.stringify(payload));
   return `${encodedPayload}.${signAuthPayload(encodedPayload)}`;
 }
@@ -229,11 +214,11 @@ function verifyAuthToken(token: string): AuthUser | null {
     if (
       !payload.id ||
       !payload.name ||
+      !Number.isFinite(payload.exp) ||
+      payload.exp <= Math.floor(Date.now() / 1000) ||
       !['admin', 'staff', 'support'].includes(payload.role)
     ) return null;
-    // Ignore the legacy expiry claim so already-issued tokens also remain
-    // usable after their former 12-hour limit.
-    const { exp: _legacyExpiry, ...user } = payload;
+    const { exp: _expiry, ...user } = payload;
     return user;
   } catch {
     return null;
@@ -319,19 +304,29 @@ app.patch('/api/promotion-codes/:code', requireRole('admin'), async (req, res) =
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.' }
+});
+
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase();
   const password = String(req.body?.password || '').trim();
   if (!username || !password) return res.status(400).json({ error: 'Thiếu tài khoản hoặc mật khẩu' });
   if (!db) return res.status(500).json({ error: 'No database connected' });
 
   try {
-    const configuredAdminUsername = String(process.env.ADMIN_USERNAME || 'hoanganh23091997@gmail.com').trim().toLowerCase();
-    const configuredAdminPassword = String(process.env.ADMIN_PASSWORD || '0089').trim();
     let user: AuthUser | null = null;
 
-    if (username === configuredAdminUsername && password === configuredAdminPassword) {
-      user = { id: 'admin_configured', name: process.env.ADMIN_NAME || 'Hoàng Anh (Admin)', role: 'admin' };
+    if (
+      hasConfiguredAdmin() &&
+      username === runtimeConfig.admin.username &&
+      password === runtimeConfig.admin.password
+    ) {
+      user = { id: 'admin_configured', name: runtimeConfig.admin.name, role: 'admin' };
     } else {
       const adminDocs = await db.collection('admin_accounts').get()
         .then(snapshot => snapshot.docs)
@@ -347,7 +342,7 @@ app.post('/api/auth/login', async (req, res) => {
           .map(doc => ({ id: doc.id, ...doc.data() } as any))
           .find(member => {
             const loginName = String(member.username || member.phone || '').trim().toLowerCase();
-            const loginPassword = String(member.password || '1234').trim();
+            const loginPassword = String(member.password || '').trim();
             return member.status === 'active' && loginName === username && loginPassword === password;
           });
         if (staff) {
@@ -394,11 +389,11 @@ app.get("/api/services", async (req, res) => {
 });
 
 // Cached Staff endpoint (0 reads if cached)
-app.get("/api/staff", async (req, res) => {
+app.get("/api/staff", requireRole('admin', 'staff', 'support'), async (req, res) => {
   const cached = serverCache.get<any[]>("staff");
   if (cached) {
     console.log("[REST CACHE] Serving staff table from RAM (0 reads)");
-    return res.json(cached);
+    return res.json(cached.map(({ password: _password, ...member }) => member));
   }
   if (!db) {
     return res.status(500).json({ error: "Database not running on server" });
@@ -409,7 +404,7 @@ app.get("/api/staff", async (req, res) => {
     const snapshot = await colRef.get();
     const staffList = snapshot.docs.map(doc => ({ ...doc.data() }));
     serverCache.set("staff", staffList, 600000); // 10 minutes TTL (for improved multi-instance consistency)
-    return res.json(staffList);
+    return res.json(staffList.map(({ password: _password, ...member }) => member));
   } catch (err: any) {
     console.error("Express failed loading staff: ", err);
     return res.status(500).json({ error: err.message });
@@ -420,11 +415,13 @@ app.get("/api/staff", async (req, res) => {
 
 // API endpoints for Web Push Subscription
 app.get("/api/push-public-key", (req, res) => {
-  res.json({ publicKey });
+  if (!hasConfiguredWebPush()) return res.status(503).json({ error: 'Thông báo đẩy chưa được cấu hình' });
+  res.json({ publicKey: runtimeConfig.webPush.publicKey });
 });
 
-app.post("/api/push-subscribe", async (req, res) => {
-  const { subscription, role, userName } = req.body;
+app.post("/api/push-subscribe", requireRole('admin', 'staff', 'support'), async (req, res) => {
+  const { subscription } = req.body;
+  const user = getRequestUser(req);
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: "Invalid subscription" });
   }
@@ -444,8 +441,8 @@ app.post("/api/push-subscribe", async (req, res) => {
       await subDocRef.set({
         subscription,
         createdAt: new Date().toISOString(),
-        role: role || 'unknown',
-        userName: userName || ''
+        role: user.role,
+        userName: user.name
       });
       console.log(`Persisted sub to Firestore collection: ${subscription.endpoint.slice(-25)}`);
     } catch (err: any) {
@@ -462,6 +459,7 @@ async function broadcastPushNotification(
   tag?: string,
   url?: string
 ): Promise<number> {
+  if (!hasConfiguredWebPush()) throw new Error('Thông báo đẩy chưa được cấu hình');
   console.log(`Broadcast event received with title: "${title}" - content: "${body}" - url: "${url}"`);
 
   const targetUrl = url || "/";
@@ -518,10 +516,14 @@ async function broadcastPushNotification(
   return allSubs.length;
 }
 
-app.post("/api/push-notify-all", async (req, res) => {
-  const { title, body, tag, url } = req.body;
-  const notifiedCount = await broadcastPushNotification(title, body, tag, url);
-  res.json({ success: true, notifiedCount });
+app.post("/api/push-notify-all", requireRole('admin', 'staff', 'support'), async (req, res) => {
+  try {
+    const { title, body, tag, url } = req.body;
+    const notifiedCount = await broadcastPushNotification(title, body, tag, url);
+    res.json({ success: true, notifiedCount });
+  } catch (error: any) {
+    res.status(503).json({ error: error.message || 'Không thể gửi thông báo đẩy' });
+  }
 });
 
 // Auto Settle function for orders - kept as fallback
@@ -2094,7 +2096,11 @@ const handleSePayWebhook = async (req: express.Request, res: express.Response) =
   
   // 1. Xác thực bảo mật webhook từ SePay bằng Authorization header
   const authHeader = req.headers['authorization'];
-  const expectedApiKey = process.env.SEPAY_API_KEY || "emMinhthichchiHoanganhratnhieu";
+  const expectedApiKey = runtimeConfig.sepayApiKey;
+  if (!expectedApiKey) {
+    console.error('[SePay Webhook] SEPAY_API_KEY chưa được cấu hình');
+    return res.status(503).json({ error: 'SePay webhook chưa được cấu hình' });
+  }
 
   if (!authHeader) {
     console.error("[SePay Webhook] Lỗi bảo mật: Thiếu header Authorization");
@@ -2340,7 +2346,7 @@ app.post('/webhook/sepay', handleSePayWebhook);
 app.post('/api/sepay/webhook', handleSePayWebhook);
 
 // API endpoint để lấy danh sách các tệp sao lưu trong thư mục backups
-app.get("/api/backups/list", (req, res) => {
+app.get("/api/backups/list", requireRole('admin'), (req, res) => {
   try {
     const backupsDir = backupsRoot;
     if (!fs.existsSync(backupsDir)) {
@@ -2355,7 +2361,7 @@ app.get("/api/backups/list", (req, res) => {
 });
 
 // API endpoint để nạp và ghi đè toàn bộ dữ liệu từ một file backup được chỉ định trong thư mục backups
-app.post("/api/import-server-backup", async (req, res) => {
+app.post("/api/import-server-backup", requireRole('admin'), async (req, res) => {
   if (!db) {
     return res.status(500).json({ error: "Cơ sở dữ liệu chưa được kết nối trên Server." });
   }
