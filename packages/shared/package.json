@@ -1,0 +1,16 @@
+{
+  "name": "@nail-manager/shared",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./types": "./src/types.ts",
+    "./checkout-policy": "./src/checkoutPolicy.ts"
+  },
+  "scripts": {
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  }
+}

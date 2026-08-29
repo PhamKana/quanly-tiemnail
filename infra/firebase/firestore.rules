@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Match rules for the appointments registry
+    match /appointments/{appointmentId} {
+      allow read, write: if true;
+    }
+    // Match rules for customer records
+    match /customers/{customerId} {
+      allow read, write: if true;
+    }
+    // Match rules for nail service menus
+    match /services/{serviceId} {
+      allow read, write: if true;
+    }
+    // Match rules for technician roster
+    match /staff/{staffId} {
+      allow read, write: if true;
+    }
+    // Match rules for staff attendance logs
+    match /time_logs/{logId} {
+      allow read, write: if true;
+    }
+    // Match rules for staff bonus records
+    match /staff_bonuses/{bonusId} {
+      allow read, write: if true;
+    }
+    match /sms_logs/{logId} {
+      allow read, write: if true;
+    }
+    match /sepay_transactions/{transactionId} {
+      allow read, write: if true;
+    }
+    match /staff_income/{incomeId} {
+      allow read, write: if true;
+    }
+    match /push_subscriptions/{subscriptionId} {
+      allow read, write: if true;
+    }
+    match /payroll_settlements/{settlementId} {
+      allow read, write: if true;
+    }
+    match /payment_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+    match /payment_transactions/{transactionId} {
+      allow read, write: if true;
+    }
+    match /system/{document=**} {
+      allow read, write: if true;
+    }
+    // Global fallback default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

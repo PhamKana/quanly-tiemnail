@@ -1,0 +1,181 @@
+{
+  "entities": {
+    "Customer": {
+      "title": "Customer",
+      "description": "Premium customer records at nailby.ank",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user-defined ID prefixing 'c'" },
+        "name": { "type": "string", "description": "Customer display name" },
+        "phone": { "type": "string", "description": "Contact or booking phone number" },
+        "email": { "type": "string", "description": "Customer optional email address" },
+        "totalVisits": { "type": "integer", "description": "Total completed beauty checkouts count" },
+        "totalSpent": { "type": "number", "description": "Accumulative spend amount in VND" },
+        "notes": { "type": "string", "description": "Personal style preferences or allergic hints" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Registration audit timestamp" },
+        "walletBalance": { "type": "number", "description": "Customer's prepay/deposit wallet balance" }
+      },
+      "required": ["id", "name", "phone"]
+    },
+    "Staff": {
+      "title": "Staff",
+      "description": "Technician and salon personnel records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Personnel identification identifier prefixing 's'" },
+        "name": { "type": "string", "description": "Full staff member name" },
+        "phone": { "type": "string", "description": "Mobile contact number" },
+        "role": { "type": "string", "description": "System access and compensation level tier" },
+        "commissionRate": { "type": "number", "description": "VND payout sharing ratio (eg. 0.6 is 60%)" },
+        "baseSalary": { "type": "number", "description": "VND flat monthly retainer amount" },
+        "hourlyRate": { "type": "number", "description": "Hourly rate for support staff" },
+        "status": { "type": "string", "enum": ["active", "inactive"], "description": "Active status of the staff member" },
+        "username": { "type": "string", "description": "Staff login authentication handle" },
+        "password": { "type": "string", "description": "Staff simple authentication password (defaults to 1234)" }
+      },
+      "required": ["id", "name", "phone", "status"]
+    },
+    "NailService": {
+      "title": "NailService",
+      "description": "Available catalogs of salon premium nail art menus",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Service reference code starting with 'srv_'" },
+        "name": { "type": "string", "description": "Descriptive beauty service title" },
+        "category": { "type": "string", "description": "Vanguard categories of procedure types" }
+      },
+      "required": ["id", "name", "category"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Active schedules, bookings, and billing items",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique booking slot ID prefixed with 'a'" },
+        "customerId": { "type": "string", "description": "Referenced customer ID" },
+        "customerName": { "type": "string", "description": "Customer display name cache" },
+        "customerPhone": { "type": "string", "description": "Customer phone contact cache" },
+        "staffId": { "type": "string", "description": "Grooming technician assigned or unclaimed" },
+        "staffName": { "type": "string", "description": "Technician cached display name shadow" },
+        "serviceIds": { "type": "array", "items": { "type": "string" }, "description": "List of selected service IDs" },
+        "date": { "type": "string", "format": "date", "description": "Target calendar local event date (YYYY-MM-DD)" },
+        "time": { "type": "string", "description": "Start beauty procedure hour (eg. 13:30)" },
+        "status": { "type": "string", "enum": ["pending", "completed", "cancelled"], "description": "Booking workflow state transition" },
+        "pendingStatusApproval": { "type": "string", "description": "Pending approval of completion/cancellation" },
+        "totalPrice": { "type": "number", "description": "Final computed checkout billing in VND" },
+        "notes": { "type": "string", "description": "Notes for service details" },
+        "paymentMethod": { "type": "string", "description": "Selected checkout payment method" },
+        "paymentCollectedAmount": { "type": "number", "description": "Actual money threshold" },
+        "payrollSettled": { "type": "boolean" },
+        "payrollSettledAt": { "type": "string" },
+        "receiptImage": { "type": "string" }
+      },
+      "required": ["id", "customerId", "customerName", "date", "time", "status", "totalPrice"]
+    },
+    "TimeLog": {
+      "title": "TimeLog",
+      "description": "Staff attendance clocking logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "checkIn": { "type": "string" },
+        "checkOut": { "type": "string" },
+        "totalHours": { "type": "number" },
+        "totalEarnings": { "type": "number" },
+        "paid": { "type": "boolean" },
+        "paidAt": { "type": "string" }
+      },
+      "required": ["id", "staffId", "checkIn"]
+    },
+    "StaffBonus": {
+      "title": "StaffBonus",
+      "description": "Custom tips, rewards, or deductions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "month": { "type": "string" },
+        "amount": { "type": "number" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "paid": { "type": "boolean" },
+        "paidAt": { "type": "string" },
+        "payrollSettlementId": { "type": "string" }
+      },
+      "required": ["id", "staffId", "month", "amount", "reason"]
+    },
+    "PayrollSettlement": {
+      "title": "PayrollSettlement",
+      "description": "Historical records of settled payroll payments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "month": { "type": "string" },
+        "settledAt": { "type": "string" },
+        "commissionPaid": { "type": "number" },
+        "baseSalaryPaid": { "type": "number" },
+        "bonusPaid": { "type": "number" },
+        "totalPaid": { "type": "number" },
+        "appointmentIds": { "type": "array", "items": { "type": "string" } },
+        "bonusIds": { "type": "array", "items": { "type": "string" } },
+        "timeLogIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "staffId", "staffName", "month", "settledAt", "totalPaid"]
+    },
+    "PaymentSession": {
+      "title": "PaymentSession",
+      "description": "Payment QR sessions with hold deposits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "amountDue": { "type": "number" },
+        "depositUsed": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "useDeposit": { "type": "boolean" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "originalAppointmentStatus": { "type": "string" }
+      },
+      "required": ["id", "appointmentId", "amountDue", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "customers": {
+      "schema": "Customer",
+      "description": "Customers collection"
+    },
+    "staff": {
+      "schema": "Staff",
+      "description": "Staff/KTV personnel list"
+    },
+    "services": {
+      "schema": "NailService",
+      "description": "Catalog menu of nail procedures"
+    },
+    "appointments": {
+      "schema": "Appointment",
+      "description": "Appointment bookings registry"
+    },
+    "time_logs": {
+      "schema": "TimeLog",
+      "description": "Check-in and check-out logs of staff members"
+    },
+    "staff_bonuses": {
+      "schema": "StaffBonus",
+      "description": "Staff bonus and penalties records"
+    },
+    "payment_sessions": {
+      "schema": "PaymentSession",
+      "description": "QR bank transfer session states"
+    },
+    "payroll_settlements": {
+      "schema": "PayrollSettlement",
+      "description": "Historical audit logs of settled payroll payments"
+    }
+  }
+}
