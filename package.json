@@ -1,0 +1,14 @@
+{
+  "name": "nail-manager",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace @nail-manager/api",
+    "build": "npm run build --workspace @nail-manager/web && npm run build --workspace @nail-manager/api",
+    "start": "npm run start --workspace @nail-manager/api",
+    "lint": "npm run lint --workspace @nail-manager/shared && npm run lint --workspace @nail-manager/web && npm run lint --workspace @nail-manager/api",
+    "test:salary": "npm run test:salary --workspace @nail-manager/web"
+  }
+}

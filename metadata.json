@@ -1,0 +1,8 @@
+{
+  "name": "Nail manager",
+  "description": "Hệ thống quản lý đặt lịch, thông tin khách hàng, tính lương nhân viên và thống kê doanh thu tiệm nail",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
